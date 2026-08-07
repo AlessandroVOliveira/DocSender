@@ -110,6 +110,7 @@ Automatizar o envio desses documentos assim que são gerados pelo ERP, sem exigi
 | RNF06 | O sistema deve assumir e documentar que Evolution API e Q-Zap compartilham a mesma máquina como ponto único de falha — não há requisito de alta disponibilidade/failover na v1. |
 | RNF07 | Dados de sessão da Evolution API (pareamento WhatsApp) devem ser persistidos em disco (volume Docker) de forma a sobreviver a reinícios do container/máquina. |
 | RNF08 | A instalação em um cliente novo deve exigir no máximo: executar um único comando, respondendo interativamente às perguntas feitas por ele (pasta base de trabalho, número administrador, limite diário por número) — sem necessidade de editar o `.env` manualmente. Toda a provisão de infraestrutura (pastas, geração de credenciais da Evolution API, subida via Docker, dependências, registro como serviço Windows) deve ser automatizada por esse comando. A única etapa manual inevitável é o pareamento inicial via QR code. |
+| RNF09 | Deve existir um comando único de desinstalação que remova o serviço Windows e os containers Docker (incluindo volumes — sessão pareada do WhatsApp e dados do Postgres da Evolution API, exigindo novo pareamento por QR code numa reinstalação). Os dados em `PASTA_BASE` (documentos de clientes já processados, logs) nunca são apagados automaticamente — permanecem em disco para o operador decidir o que fazer com eles. |
 
 ## 8. Fluxo do sistema (alto nível)
 
@@ -139,6 +140,7 @@ Em paralelo: serviço escuta webhook de status de conexão da Evolution API; se 
 - **Identificação do cliente**: via marcador embutido no PDF (`$Q-Zap=numero|nome$`), sem dependência de nome de arquivo ou cadastro externo.
 - **Alertas de erro**: registro local em `erro/log.txt` (independe de rede) + resumo via WhatsApp para número administrador ao final de cada arquivo processado. Sem canal de e-mail/SMTP na v1 — não solicitado.
 - **Instalação**: `install.ps1` pergunta interativamente (`Read-Host`) os únicos 3 campos sem default seguro (`PASTA_BASE`, `NUMERO_ADMIN`, `LIMITE_DIARIO_POR_NUMERO`) na primeira execução, valida e confirma antes de prosseguir; demais variáveis já vêm com default. Não é mais necessário editar o `.env` manualmente.
+- **Desinstalação**: `uninstall.ps1` (par do `install.ps1`) remove o serviço Windows e derruba os containers Docker com remoção de volumes (`docker-compose down -v`) — desinstalação completa da Evolution API, sessão do WhatsApp incluída. Nunca apaga `PASTA_BASE` automaticamente, mesmo com `-v`: são dados de clientes (documentos já enviados/em erro), e uma remoção automática seria irreversível e arriscada demais para um comando de desinstalação rodar sem revisão humana.
 
 ## 10. Pontos ainda em aberto
 
@@ -160,3 +162,4 @@ Em paralelo: serviço escuta webhook de status de conexão da Evolution API; se 
 - [ ] Ao final do processamento de um arquivo de entrada, o número administrador recebe um resumo via WhatsApp com a contagem de enviados/erros.
 - [ ] Durante uma pausa por circuit breaker, `status.txt` reflete o motivo/horário, consultável sem depender da Evolution API estar no ar; criar `RETOMAR.txt` retoma o processamento e dispara um resumo retroativo ao número administrador.
 - [ ] O limite diário por número (RF11) sobrevive a um reinício do serviço no meio do dia, sem resetar a contagem indevidamente.
+- [ ] Desinstalação em uma máquina removeu o serviço Windows e os containers/volumes Docker (Evolution API exige novo pareamento por QR code numa reinstalação seguinte), sem apagar nenhum arquivo de `PASTA_BASE`.

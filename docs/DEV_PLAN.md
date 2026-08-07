@@ -123,7 +123,7 @@ Validar contra os critérios de aceite do PRD:
 
 **Entrega**: Q-Zap instalado e rodando como serviço, sobrevivendo a reinício do Windows.
 
-## Etapa 11 — Instalador para cliente novo
+## Etapa 11 — Instalador e desinstalador para cliente novo
 - Criar um script único (ex: `install.ps1` ou `npm run setup`) que automatiza tudo que hoje é manual nas Etapas 1 e 10:
   - Verifica pré-requisitos (Node, Docker instalados).
   - Copia `.env.example` para `.env` caso não exista (sem sobrescrever um já preenchido).
@@ -135,8 +135,14 @@ Validar contra os critérios de aceite do PRD:
   - Registra o Q-Zap como serviço Windows.
   - Ao final, orienta o usuário a escanear o QR code para parear o WhatsApp — única etapa manual inevitável.
 - Testar o script do zero em uma máquina limpa (ou VM), simulando instalação em cliente novo.
+- Criar `uninstall.ps1` (RNF09), par do `install.ps1`:
+  - Para e desregistra o serviço Windows do Q-Zap.
+  - Derruba os containers Docker com remoção de volumes (`docker-compose down -v`) — inclui a sessão pareada do WhatsApp e os dados do Postgres da Evolution API; uma reinstalação seguinte exige novo pareamento por QR code.
+  - Nunca apaga `PASTA_BASE` (documentos de clientes já enviados/em erro, logs) — nem com flag alguma. É dado do cliente, decisão de o que fazer com ele fica fora do escopo de um comando de desinstalação automatizado.
+  - Ao final, informa ao usuário onde `PASTA_BASE` continua e que ela não foi tocada.
+- Testar o ciclo completo instalar → desinstalar → reinstalar na mesma máquina limpa/VM usada para validar o `install.ps1`, confirmando que a reinstalação pede novo QR code e que `PASTA_BASE` sobrevive intacta ao ciclo.
 
-**Entrega**: instalação em máquina nova reduzida a "rodar um comando e responder 3 perguntas" (RNF08), sem precisar editar `.env` manualmente, validado de ponta a ponta.
+**Entrega**: instalação em máquina nova reduzida a "rodar um comando e responder 3 perguntas" (RNF08), sem precisar editar `.env` manualmente, validado de ponta a ponta; desinstalação reduzida a um único comando (RNF09), removendo serviço e containers/volumes sem tocar nos dados de `PASTA_BASE`, também validada de ponta a ponta.
 
 ---
 
