@@ -3,3 +3,4 @@ node_modules/
 logs/
 .claude/settings.local.json
 CLAUDE.md
+testes/

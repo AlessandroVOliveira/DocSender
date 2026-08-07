@@ -1,4 +1,4 @@
-DocSender é pensado para ser uma solução para sistemas antigos que não possuem integração com o whatsapp por exemplo sistemas erp
+Q-Zap é pensado para ser uma solução para sistemas antigos que não possuem integração com o whatsapp por exemplo sistemas erp
 a ideia aqui é fazer com que documentos gerados pelo erp sejam e que precisam ser enviasdos a clientes pelo whatsapp sejam enviados de forma autonoma
 
 passo 1
