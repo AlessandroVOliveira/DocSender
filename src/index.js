@@ -1,6 +1,7 @@
 import pino from 'pino';
 import { config } from '../config/config.js';
 import { garantirEstruturaDePastas } from './bootstrap.js';
+import { aguardarConexao } from './evolutionClient.js';
 import { criarFila } from './fila.js';
 import { iniciarWatcher } from './watcher.js';
 
@@ -15,6 +16,7 @@ async function processarItemDaFila(item) {
 
 async function main() {
   await garantirEstruturaDePastas(logger);
+  await aguardarConexao({ logger });
   const fila = criarFila(processarItemDaFila);
   iniciarWatcher({ logger, fila });
   logger.info({ pastaBase: config.pastas.base }, 'Q-Zap iniciado');
