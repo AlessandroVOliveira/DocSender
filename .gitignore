@@ -4,3 +4,4 @@ logs/
 .claude/settings.local.json
 CLAUDE.md
 testes/
+scripts/saida-teste-etapa2/

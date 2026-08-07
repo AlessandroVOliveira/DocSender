@@ -6,7 +6,7 @@ Decisões de config assumidas para v1 (podem ser revisadas):
 - `.env` para configuração operacional (`PASTA_BASE`, credenciais/URL da Evolution API, delays, limite diário, máx. de tentativas de retry, número administrador).
 - `PASTA_BASE` é a única configuração de caminho. As subpastas `entrada/`, `enviados/`, `erro/`, `processado/` e `logs/` são derivadas por convenção e criadas automaticamente (idempotente, `mkdir recursive`) toda vez que o serviço inicia — não só na instalação.
 - `template.txt` separado para a mensagem padrão, editável sem mexer em código/`.env`.
-- Identificação do cliente via marcador embutido no PDF (`$Q-Zap=numero|nome`) — não existe mais cadastro externo de clientes na v1.
+- Identificação do cliente via marcador embutido no PDF (`$Q-Zap=numero|nome$`) — não existe mais cadastro externo de clientes na v1. O `$` final é o terminador do campo `nome` (ver Etapa 2 — necessário porque a extração de texto do `pdfjs-dist` não preserva quebras de linha entre "text runs", então o nome precisa de um limite explícito em vez de depender de fim de linha).
 - Máximo de tentativas de retry por envio: 3 (configurável).
 - Logger: `pino`, arquivo local com rotação diária.
 - v1 suporta apenas arquivos `.pdf`.
@@ -50,7 +50,7 @@ Decisões de config assumidas para v1 (podem ser revisadas):
 ## Etapa 2 — Extração de marcador e agrupamento de páginas
 - Módulo que abre um PDF (`pdfjs-dist`) e extrai o texto de cada página individualmente via `getTextContent()`.
 - Antes do parse, normalizar o texto da página colapsando espaços/quebras de linha (`texto.replace(/\s+/g, ' ')`), já que a extração pode inserir espaçamento irregular entre os "text runs" do PDF.
-- Parser do marcador com regex tolerante: `/\$\s*Q-Zap\s*=\s*([\d\-\s()]+)\|\s*([^\n\r]+)/i`, buscando a primeira ocorrência em qualquer posição do texto da página (a ordem de extração não é garantida seguir a ordem visual).
+- Parser do marcador com regex tolerante: `/\$\s*Q-Zap\s*=\s*([\d\-\s()]+)\|\s*([^$]+)\$/i`, buscando a primeira ocorrência em qualquer posição do texto da página (a ordem de extração não é garantida seguir a ordem visual). O `nome` é delimitado por um `$` de fechamento (formato `$Q-Zap=numero|nome$`), não por quebra de linha — `pdfjs-dist` (`getTextContent()`) concatena os "text runs" da página sem inserir `\n` real entre eles, então `[^\n\r]+` nunca encontraria um limite e capturaria o resto do texto visível da página inteira como se fosse o nome (validado empiricamente contra `testes/relatorio teste.pdf .pdf`).
 - Sanitização do número: remover tudo que não é dígito (`numero.replace(/\D/g, '')`) — o campo já vem com máscara/hífen do banco do ERP antes de ser salvo no relatório, então a extração nunca deve assumir formato limpo.
 - Validação do número sanitizado (tamanho/formato esperado pela Evolution API, DDI+DDD+número).
 - Agrupamento de páginas consecutivas com o mesmo marcador em "documentos" lógicos (lista de grupos: `{ numero, nome, paginas: [...] }`).

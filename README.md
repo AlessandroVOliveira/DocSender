@@ -15,7 +15,7 @@ Projeto em fase de planejamento. Requisitos e etapas de desenvolvimento já defi
 ## Como funciona (resumo)
 
 1. O ERP (via editor de relatórios, ex: Crystal Reports) salva um PDF na pasta monitorada. O nome do arquivo é irrelevante; o PDF pode conter o documento de um único cliente ou, em geração em lote (ex: boletos do mês), os documentos de vários clientes concatenados.
-2. O Q-Zap extrai, da camada de texto de cada página, um marcador no formato `$Q-Zap=numero|nome`, e agrupa páginas consecutivas com o mesmo marcador em um documento por cliente.
+2. O Q-Zap extrai, da camada de texto de cada página, um marcador no formato `$Q-Zap=numero|nome$`, e agrupa páginas consecutivas com o mesmo marcador em um documento por cliente.
 3. Se uma página não tiver marcador válido (ausente, malformado ou com dado inválido), apenas aquele documento é movido para uma pasta de erro, sem afetar os demais do mesmo lote.
 4. Para cada documento identificado, o Q-Zap monta uma mensagem a partir de um template configurável e envia o documento como anexo pelo WhatsApp, via Evolution API rodando localmente.
 5. Após o envio confirmado, o documento é movido para uma pasta de enviados; quando todos os documentos de um arquivo de entrada forem concluídos, o arquivo original é movido para uma pasta de processados.
@@ -42,7 +42,7 @@ Ainda não implementada. O objetivo definido no PRD é que a instalação em uma
 
 ## Estrutura de dados esperada
 
-- Marcador `$Q-Zap=numero|nome` embutido na camada de texto de cada página do PDF (via template do editor de relatórios do ERP) — não há mais cadastro externo de clientes.
+- Marcador `$Q-Zap=numero|nome$` embutido na camada de texto de cada página do PDF (via template do editor de relatórios do ERP) — não há mais cadastro externo de clientes.
 - `template.txt` — texto da mensagem enviada junto com o documento, com placeholder `{nome}`.
 - `.env` — configuração operacional (`PASTA_BASE`, acesso à Evolution API, delays, limites, número administrador). As subpastas `entrada/`, `enviados/`, `erro/`, `processado/` e `logs/` são criadas automaticamente dentro de `PASTA_BASE`.
 

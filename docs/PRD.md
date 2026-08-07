@@ -52,11 +52,11 @@ Automatizar o envio desses documentos assim que são gerados pelo ERP, sem exigi
 ### 5.2 Marcador de identificação no PDF
 - Cada página do PDF deve conter, na camada de texto do documento, um marcador no formato:
   ```
-  $Q-Zap=<numero>|<nome>
+  $Q-Zap=<numero>|<nome>$
   ```
-  Exemplo: `$Q-Zap=5511999998888|João Silva`
+  Exemplo: `$Q-Zap=5511999998888|João Silva$`
 - `numero` pode vir com máscara (ex: hífen), já que o campo é salvo assim pelo ERP antes de chegar ao relatório — o Q-Zap deve sanitizar removendo tudo que não é dígito antes de validar/usar o número.
-- `nome` é o nome/razão social exibido na mensagem (placeholder `{nome}` do template).
+- `nome` é o nome/razão social exibido na mensagem (placeholder `{nome}` do template). O `$` final é obrigatório: delimita onde o nome termina. Sem ele, a extração de texto do PDF (que não preserva quebras de linha entre os "text runs" da página) faria o nome "vazar" e capturar o resto do conteúdo visível da página.
 - O marcador é inserido via template do relatório (ex: campo de texto no Crystal Reports puxando dados do banco do ERP), podendo ser visualmente invisível (ex: mesma cor do fundo) — não depende de nenhuma alteração no código do ERP.
 - Páginas consecutivas com o mesmo marcador pertencem ao mesmo documento/envio; uma mudança de marcador indica o início de um novo documento (novo cliente) dentro do mesmo arquivo de entrada.
 - Não existe cadastro de clientes separado (`cadastro.txt`) na v1 — número e nome vêm diretamente do marcador de cada documento.
@@ -79,7 +79,7 @@ Automatizar o envio desses documentos assim que são gerados pelo ERP, sem exigi
 |----|-----------|
 | RF01 | O sistema deve monitorar continuamente uma pasta configurável em busca de novos arquivos. |
 | RF02 | O sistema deve aguardar a estabilização do arquivo (ERP terminar de escrevê-lo) antes de processá-lo, para evitar ler arquivo incompleto. |
-| RF03 | O sistema deve extrair o marcador de identificação (`$Q-Zap=numero\|nome`) da camada de texto de cada página do PDF. |
+| RF03 | O sistema deve extrair o marcador de identificação (`$Q-Zap=numero\|nome$`) da camada de texto de cada página do PDF. |
 | RF04 | O sistema deve agrupar páginas consecutivas com o mesmo marcador em um único documento de saída, gerando um PDF separado por grupo sempre que o arquivo de entrada contiver mais de um cliente (lote). |
 | RF05 | Se uma página não tiver marcador válido (ausente ou malformado) ou os dados extraídos forem inválidos (ex: número de telefone inexistente/malformado), apenas o documento correspondente àquele grupo de páginas deve ser movido para a pasta `erro/`, sem interromper o processamento dos demais documentos do mesmo arquivo de entrada. |
 | RF06 | Para cada documento identificado com sucesso, o sistema deve montar a mensagem a partir do template, substituindo `{nome}` pelo nome extraído do marcador. |
@@ -115,7 +115,7 @@ Automatizar o envio desses documentos assim que são gerados pelo ERP, sem exigi
 
 1. O ERP (via Crystal Reports ou similar) salva um PDF na pasta monitorada — um único documento ou um lote com vários clientes.
 2. Serviço detecta o novo arquivo e aguarda estabilização.
-3. Extrai o marcador `$Q-Zap=numero|nome` da camada de texto de cada página.
+3. Extrai o marcador `$Q-Zap=numero|nome$` da camada de texto de cada página.
 4. Agrupa páginas consecutivas com o mesmo marcador em documentos individuais.
 5. Para cada documento do grupo:
    - Marcador ausente/malformado ou dado inválido (ex: telefone inexistente) → gera PDF do grupo, move para `erro/`, registra o motivo em `erro/log.txt` e no log estruturado, segue para o próximo documento.
@@ -136,7 +136,7 @@ Em paralelo: serviço escuta webhook de status de conexão da Evolution API; se 
 - **Infraestrutura Evolution API**: local, mesma máquina do Q-Zap, via Docker (a montar) — ver seção 5.4.
 - **Formato de configuração**: `.env` para parâmetros operacionais + `template.txt` para a mensagem — ver `DEV_PLAN.md`.
 - **Retry**: máximo de 3 tentativas por padrão.
-- **Identificação do cliente**: via marcador embutido no PDF (`$Q-Zap=numero|nome`), sem dependência de nome de arquivo ou cadastro externo.
+- **Identificação do cliente**: via marcador embutido no PDF (`$Q-Zap=numero|nome$`), sem dependência de nome de arquivo ou cadastro externo.
 - **Alertas de erro**: registro local em `erro/log.txt` (independe de rede) + resumo via WhatsApp para número administrador ao final de cada arquivo processado. Sem canal de e-mail/SMTP na v1 — não solicitado.
 - **Instalação**: `install.ps1` pergunta interativamente (`Read-Host`) os únicos 3 campos sem default seguro (`PASTA_BASE`, `NUMERO_ADMIN`, `LIMITE_DIARIO_POR_NUMERO`) na primeira execução, valida e confirma antes de prosseguir; demais variáveis já vêm com default. Não é mais necessário editar o `.env` manualmente.
 
