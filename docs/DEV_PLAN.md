@@ -30,11 +30,13 @@ Decisões de config assumidas para v1 (podem ser revisadas):
 | `RETRY_MAX_TENTATIVAS` | Máximo de tentativas de envio antes de considerar erro (RF12) | `3` |
 | `RETRY_BASE_MS` / `RETRY_MAX_MS` | Backoff exponencial (RF12): `delay(tentativa) = min(BASE * 2^(tentativa-1), MAX) + jitter`. Sequência com os defaults: ~5s → ~10s → ~20s | `5000` / `60000` |
 | `LOG_LEVEL` | Nível de verbosidade do `pino` (`trace`<`debug`<`info`<`warn`<`error`<`fatal`; cada nível loga a si e os mais severos) | `info` |
+| `POSTGRES_PASSWORD` | Senha do Postgres usado internamente pela Evolution API (v2 exige banco Prisma/Postgres para persistência de instância, não há mais modo só-arquivo) — usada tanto no `.env` do Q-Zap quanto no `docker-compose.yml` | obrigatória, sem default; gerada nativamente no `install.ps1` (Etapa 11), mesmo mecanismo do `EVOLUTION_API_KEY` |
 
 ---
 
 ## Etapa 1 — Setup do projeto e infraestrutura local
-- Subir a Evolution API localmente via Docker/docker-compose, na mesma máquina do Q-Zap.
+- Subir a Evolution API localmente via Docker/docker-compose, na mesma máquina do Q-Zap. Imagem `evoapicloud/evolution-api:latest` (o projeto foi renomeado de `atendai/evolution-api`, que não existe mais no Docker Hub). A v2 exige PostgreSQL para persistência de instância (Prisma, sem modo só-arquivo como na v1) — container `postgres:15` adicional no mesmo compose, mesma máquina (RNF06 já aceita ponto único de falha). Redis é opcional na v2 e fica desligado (`CACHE_REDIS_ENABLED=false`) para não adicionar um terceiro container sem necessidade.
+- Pareamento via QR pode falhar silenciosamente (nenhum erro do lado do servidor após várias rotações de QR) se houver muitas tentativas em pouco tempo — o WhatsApp aplica rate limiting anti-abuso nesse padrão (mensagem no celular: "erro ao conectar, tente mais tarde"). Não é bug da Evolution API nem da rede (validado: conectividade WS ao WhatsApp ok, IP não é datacenter/proxy, mesma imagem já funcionou em outro projeto na mesma máquina). Se acontecer: parar de tentar, esperar ao menos 30-60 min, então desconectar a instância (botão de logout no manager) antes de reiniciar e gerar um QR novo.
 - Configurar API key/instância e realizar o pareamento inicial via QR code.
 - Configurar volume Docker para persistir a sessão autenticada entre reinícios (RNF07) — validar reiniciando o container e confirmando que não pede novo QR code.
 - Inicializar repositório e `package.json`.

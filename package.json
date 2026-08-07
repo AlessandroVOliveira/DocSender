@@ -1,0 +1,19 @@
+{
+  "name": "q-zap",
+  "version": "1.0.0",
+  "description": "Servico de envio automatico de documentos de ERPs legados via WhatsApp (Evolution API)",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.19.0",
+    "chokidar": "^5.0.0",
+    "dotenv": "^17.4.2",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.2.108",
+    "pino": "^10.3.1"
+  }
+}
