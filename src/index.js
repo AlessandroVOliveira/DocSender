@@ -3,7 +3,9 @@ import pino from 'pino';
 import { config } from '../config/config.js';
 import { garantirEstruturaDePastas } from './bootstrap.js';
 import { salvarEmEnviados, salvarEmErro, moverParaProcessado } from './armazenamento.js';
-import { aguardarConexao, enviarDocumento } from './evolutionClient.js';
+import { aguardarConexao, enviarDocumento, enviarPresenca } from './evolutionClient.js';
+import { calcularDelayMs, calcularDuracaoDigitandoMs, esperar } from './antiban.js';
+import { atingiuLimite, registrarEnvio } from './limiteDiario.js';
 import { criarFila } from './fila.js';
 import { criarRastreadorArquivos } from './rastreadorArquivos.js';
 import { carregarTemplate, montarMensagem } from './template.js';
@@ -15,12 +17,28 @@ async function processarDocumento(item) {
   const template = await carregarTemplate();
   const mensagem = montarMensagem(template, item.nome);
 
+  if (await atingiuLimite(item.numero)) {
+    await salvarEmErro(item.nomeArquivoSalvo, item.pdfBytes);
+    logger.warn(
+      { arquivoOrigem: item.arquivoOrigem, numero: item.numero, nome: item.nome },
+      'limite diario de mensagens atingido para o numero, documento movido para erro',
+    );
+    return;
+  }
+
   try {
+    await esperar(calcularDelayMs());
+
+    const duracaoDigitando = calcularDuracaoDigitandoMs(mensagem.length);
+    await enviarPresenca(item.numero, 'composing', duracaoDigitando);
+    await esperar(duracaoDigitando);
+
     await enviarDocumento(item.numero, {
       pdfBytes: item.pdfBytes,
       nomeArquivo: item.nomeArquivoSalvo,
       legenda: mensagem,
     });
+    await registrarEnvio(item.numero);
     await salvarEmEnviados(item.nomeArquivoSalvo, item.pdfBytes);
     logger.info(
       { arquivoOrigem: item.arquivoOrigem, numero: item.numero, nome: item.nome },
