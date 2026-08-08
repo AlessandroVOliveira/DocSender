@@ -163,6 +163,22 @@ function Wait-Pareamento([string]$BaseUrl, [string]$ApiKey, [string]$NomeInstanc
     return $false
 }
 
+function Update-PathDaSessao {
+    $env:Path = [System.Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [System.Environment]::GetEnvironmentVariable('Path', 'User')
+}
+
+function Install-NodeViaWinget {
+    if (-not (Test-Comando 'winget')) { return $false }
+    Write-Host 'Node.js nao encontrado. Tentando instalar automaticamente via winget...'
+    winget install --id OpenJS.NodeJS.LTS -e --silent --accept-package-agreements --accept-source-agreements
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host 'Instalacao do Node.js via winget falhou.' -ForegroundColor Yellow
+        return $false
+    }
+    Update-PathDaSessao
+    return Test-Comando 'node'
+}
+
 # ----- Fluxo principal -----
 
 $raizProjeto = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -174,11 +190,17 @@ Write-Host ''
 
 Write-Host 'Verificando pre-requisitos...'
 if (-not (Test-Comando 'node')) {
-    Write-Host 'Node.js nao encontrado. Instale o Node.js (https://nodejs.org) antes de continuar.' -ForegroundColor Red
-    exit 1
+    if (-not (Install-NodeViaWinget)) {
+        Write-Host 'Node.js nao encontrado e nao foi possivel instalar automaticamente (winget ausente ou instalacao falhou).' -ForegroundColor Red
+        Write-Host 'Instale manualmente a versao LTS em https://nodejs.org e rode o script novamente.' -ForegroundColor Red
+        exit 1
+    }
+    Write-Host 'Node.js instalado com sucesso.'
 }
 if (-not (Test-Comando 'docker')) {
-    Write-Host 'Docker nao encontrado. Instale o Docker Desktop antes de continuar.' -ForegroundColor Red
+    Write-Host 'Docker nao encontrado.' -ForegroundColor Red
+    Write-Host 'Instale o Docker Desktop manualmente em https://www.docker.com/products/docker-desktop/ antes de continuar.' -ForegroundColor Red
+    Write-Host 'A instalacao do Docker Desktop pode exigir habilitar WSL2/Hyper-V e reiniciar a maquina -- faca isso e rode o script de novo.' -ForegroundColor Red
     exit 1
 }
 $comandoCompose = Resolve-ComandoCompose

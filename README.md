@@ -38,7 +38,7 @@ Detalhes de bibliotecas e decisões de configuração estão em [`docs/DEV_PLAN.
 
 ## Instalação
 
-Pré-requisitos: [Node.js](https://nodejs.org) e [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalados.
+Pré-requisito: [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalado (pode exigir habilitar WSL2/Hyper-V e reiniciar a máquina). O Node.js é instalado automaticamente pelo script via `winget` se ainda não estiver presente.
 
 Em um PowerShell **como Administrador**, na raiz do projeto:
 
@@ -48,7 +48,7 @@ Em um PowerShell **como Administrador**, na raiz do projeto:
 
 O script:
 
-1. Verifica os pré-requisitos (Node, Docker, Docker Compose).
+1. Verifica os pré-requisitos: instala o Node.js automaticamente via `winget` se necessário (cai para instrução manual se o `winget` não existir na máquina); exige Docker e Docker Compose já instalados.
 2. Na primeira execução, cria o `.env` a partir do `.env.example` e pergunta interativamente `PASTA_BASE`, `NUMERO_ADMIN` e `LIMITE_DIARIO_POR_NUMERO` (mostra um resumo e pede confirmação antes de continuar). Em reexecuções com `.env` já existente, pula essa etapa.
 3. Gera `EVOLUTION_API_KEY` e `POSTGRES_PASSWORD` automaticamente, se ainda não estiverem definidos.
 4. Cria a estrutura de pastas dentro de `PASTA_BASE`, instala as dependências (`npm install`) e sobe a Evolution API (`docker compose up -d`).
