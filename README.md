@@ -10,7 +10,7 @@ Resolve a falta de integração nativa com WhatsApp em sistemas antigos: o ERP a
 
 ## Status atual
 
-Projeto em fase de planejamento. Requisitos e etapas de desenvolvimento já definidos; implementação ainda não iniciada.
+Etapas 1 a 10 do [`docs/DEV_PLAN.md`](./docs/DEV_PLAN.md) concluídas: fluxo completo (extração de marcador, watcher, envio via Evolution API, anti-ban, retry/circuit breaker, logging, testes end-to-end) rodando como serviço do Windows. Falta só a Etapa 11 (instalador/desinstalador de um comando só para clientes novos).
 
 ## Como funciona (resumo)
 
@@ -38,7 +38,33 @@ Detalhes de bibliotecas e decisões de configuração estão em [`docs/DEV_PLAN.
 
 ## Instalação
 
-Ainda não implementada. O objetivo definido no PRD é que a instalação em uma máquina nova exija apenas executar um único comando e responder a algumas perguntas feitas por ele (pasta base, número administrador, limite diário), sem precisar editar o `.env` manualmente, além do pareamento inicial do WhatsApp via QR code. Ver Etapa 11 em [`docs/DEV_PLAN.md`](./docs/DEV_PLAN.md).
+Instalador de um comando só (Etapa 11) ainda não implementado. O objetivo definido no PRD é que a instalação em uma máquina nova exija apenas executar um único comando e responder a algumas perguntas feitas por ele (pasta base, número administrador, limite diário), sem precisar editar o `.env` manualmente, além do pareamento inicial do WhatsApp via QR code. Ver Etapa 11 em [`docs/DEV_PLAN.md`](./docs/DEV_PLAN.md).
+
+Até lá, a instalação é manual: subir a Evolution API (`docker-compose up -d`), preencher o `.env` a partir do `.env.example`, rodar `npm install` e então instalar o serviço do Windows (abaixo).
+
+## Executando como serviço do Windows
+
+Com o `.env` preenchido e a Evolution API pareada (Etapa 1), o Q-Zap roda em segundo plano como um serviço nativo do Windows, sobrevivendo a reinícios da máquina:
+
+- Instalar e iniciar o serviço (terminal com privilégios de administrador):
+  ```
+  npm run servico:instalar
+  ```
+- Remover o serviço:
+  ```
+  npm run servico:desinstalar
+  ```
+
+O serviço aparece no utilitário "Serviços" do Windows com o nome `Q-Zap` e também pode ser controlado por `NET START Q-Zap` / `NET STOP Q-Zap` ou pelo utilitário `sc`. Reinício automático em caso de falha é gerenciado pelo próprio `node-windows` (backoff crescente entre tentativas, limite de tentativas por janela de 60s).
+
+O container Docker da Evolution API já sobe automaticamente com o Windows desde a Etapa 1 (`restart: always` no `docker-compose.yml`), sem passo adicional.
+
+## Operação
+
+- **Logs da aplicação**: `PASTA_BASE/logs/q-zap.<data>.<N>.log` (rotação diária). Logs do wrapper do serviço (start/stop/erros do processo em si) ficam em `src/daemon/` e no Visualizador de Eventos do Windows.
+- **Erros**: `PASTA_BASE/erro/log.txt` (uma linha por documento com erro, formato `<documento> - <motivo>`) e os PDFs correspondentes em `PASTA_BASE/erro/`.
+- **Pausar/retomar (circuit breaker)**: o sistema pausa sozinho o envio (não a leitura de novos arquivos) em caso de desconexão da Evolution API ou erros consecutivos, gravando `PASTA_BASE/status.txt` com o motivo. Para retomar manualmente, crie um arquivo vazio `RETOMAR.txt` na raiz da `PASTA_BASE`; o Q-Zap detecta, retoma o processamento, remove os dois arquivos sentinela e envia ao número administrador um resumo do período pausado.
+- **Configuração**: `template.txt` é lido a cada envio, editável sem reiniciar o serviço. Alterações no `.env` exigem reiniciar o serviço (`npm run servico:desinstalar && npm run servico:instalar`, ou pelo utilitário de Serviços do Windows).
 
 ## Estrutura de dados esperada
 

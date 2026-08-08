@@ -134,6 +134,14 @@ Validar contra os critérios de aceite do PRD:
 
 **Entrega**: Q-Zap instalado e rodando como serviço, sobrevivendo a reinício do Windows.
 
+- **`node-windows` confirmado como a biblioteca usada** (era só um exemplo no texto original desta etapa) — questionado com o usuário antes de aplicar (CLAUDE.md exige isso, via `AskUserQuestion`) contra duas alternativas: NSSM (binário externo, exigiria o `install.ps1` da Etapa 11 baixar/gerenciar um `.exe` fora do npm) e PM2 + `pm2-windows-service` (gerenciador de processos completo, redundante com o retry/circuit breaker/logging já construídos nas Etapas 7-8). `node-windows` venceu por ser 100% instalável via `npm install` (sem `node-gyp`, mesma lógica de RNF08), ter API JS direta para instalar/desinstalar (facilita a Etapa 11 chamar programaticamente em vez de orquestrar um binário externo) e já ser a sugestão original do plano.
+- Container Docker da Evolution API já tinha `restart: always` desde a Etapa 1 — nada novo a fazer aqui, só confirmado.
+- Código: `scripts/instalar-servico.mjs` / `scripts/desinstalar-servico.mjs` (usam `node-windows` `Service`, nome fixo `Q-Zap`, `script` apontando para `src/index.js`, `workingDirectory` explicitamente setado para a raiz do projeto). Comandos expostos via `npm run servico:instalar` / `npm run servico:desinstalar` no `package.json`.
+- **`workingDirectory` setado explicitamente**: sem isso, o `dotenv.config()` do `config/config.js` (que resolve `.env` a partir de `process.cwd()`) poderia não encontrar o `.env` dependendo de onde o wrapper do `node-windows` inicia o processo — decisão preventiva, não uma falha observada.
+- **Pasta `src/daemon/`** é criada automaticamente pelo `node-windows` (executável `winsw` + XML de config + logs do wrapper) no mesmo diretório do script (`src/index.js`, por escolha de onde apontar `script`). Adicionada ao `.gitignore` por ser artefato gerado, específico da máquina onde o serviço foi instalado, igual a `logs/`.
+- Sem overrides de `wait`/`grow`/`maxRestarts` — mantidos os defaults do `node-windows` (1s inicial, crescendo 25% a cada tentativa, até 3 reinícios em uma janela de 60s), suficiente para não gerar loop de restart agressivo sem precisar de configuração nova.
+- README.md ganhou as seções "Executando como serviço do Windows" e "Operação" (onde ficam logs, como pausar/retomar via `status.txt`/`RETOMAR.txt`), cobrindo o terceiro bullet desta etapa.
+
 ## Etapa 11 — Instalador e desinstalador para cliente novo
 - Criar um script único (ex: `install.ps1` ou `npm run setup`) que automatiza tudo que hoje é manual nas Etapas 1 e 10:
   - Verifica pré-requisitos (Node, Docker instalados).
