@@ -1,10 +1,16 @@
 export function criarRastreadorArquivos() {
   const pendentesPorArquivo = new Map();
+  const resultadosPorArquivo = new Map();
 
   function registrarTotal(arquivo, total) {
     if (total > 0) {
       pendentesPorArquivo.set(arquivo, total);
+      resultadosPorArquivo.set(arquivo, []);
     }
+  }
+
+  function registrarResultado(arquivo, resultado) {
+    resultadosPorArquivo.get(arquivo)?.push(resultado);
   }
 
   function concluirItem(arquivo) {
@@ -17,5 +23,11 @@ export function criarRastreadorArquivos() {
     return false;
   }
 
-  return { registrarTotal, concluirItem };
+  function obterResultados(arquivo) {
+    const resultados = resultadosPorArquivo.get(arquivo) ?? [];
+    resultadosPorArquivo.delete(arquivo);
+    return resultados;
+  }
+
+  return { registrarTotal, registrarResultado, concluirItem, obterResultados };
 }

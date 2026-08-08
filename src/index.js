@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { unlink } from 'node:fs/promises';
-import pino from 'pino';
 import { config } from '../config/config.js';
+import { criarLogger } from './logger.js';
 import { garantirEstruturaDePastas } from './bootstrap.js';
 import { salvarEmEnviados, salvarEmErro, moverParaProcessado } from './armazenamento.js';
 import { aguardarConexao, configurarWebhook, enviarDocumento, enviarPresenca, enviarTexto } from './evolutionClient.js';
@@ -17,19 +17,20 @@ import { criarRastreadorArquivos } from './rastreadorArquivos.js';
 import { carregarTemplate, montarMensagem } from './template.js';
 import { iniciarWatcher } from './watcher.js';
 
-const logger = pino({ level: config.logLevel });
+const logger = criarLogger();
 
 async function processarDocumento(item, { circuitBreaker, contadorFalhas }) {
   const template = await carregarTemplate();
   const mensagem = montarMensagem(template, item.nome);
 
   if (await atingiuLimite(item.numero)) {
-    await salvarEmErro(item.nomeArquivoSalvo, item.pdfBytes);
+    const motivo = 'limite diario de mensagens atingido para o numero';
+    await salvarEmErro(item.nomeArquivoSalvo, item.pdfBytes, motivo);
     logger.warn(
       { arquivoOrigem: item.arquivoOrigem, numero: item.numero, nome: item.nome },
       'limite diario de mensagens atingido para o numero, documento movido para erro',
     );
-    return;
+    return { tipo: 'erro', identificacao: item.nomeArquivoSalvo, motivo };
   }
 
   await esperar(calcularDelayMs());
@@ -53,7 +54,7 @@ async function processarDocumento(item, { circuitBreaker, contadorFalhas }) {
         { arquivoOrigem: item.arquivoOrigem, numero: item.numero, nome: item.nome, tentativa },
         'documento enviado',
       );
-      return;
+      return { tipo: 'enviado', identificacao: item.nomeArquivoSalvo };
     } catch (erro) {
       ultimoErro = erro;
       logger.warn(
@@ -66,7 +67,7 @@ async function processarDocumento(item, { circuitBreaker, contadorFalhas }) {
     }
   }
 
-  await salvarEmErro(item.nomeArquivoSalvo, item.pdfBytes);
+  await salvarEmErro(item.nomeArquivoSalvo, item.pdfBytes, ultimoErro.message);
   logger.error(
     { arquivoOrigem: item.arquivoOrigem, numero: item.numero, erro: ultimoErro.message },
     'falha ao enviar documento apos esgotar tentativas, movido para erro',
@@ -78,14 +79,44 @@ async function processarDocumento(item, { circuitBreaker, contadorFalhas }) {
       `${falhasConsecutivas} falhas de envio consecutivas (ultimo erro: ${ultimoErro.message})`,
     );
   }
+
+  return { tipo: 'erro', identificacao: item.nomeArquivoSalvo, motivo: ultimoErro.message };
 }
 
 async function processarErro(item) {
-  await salvarEmErro(item.nomeArquivoSalvo, item.pdfBytes);
+  await salvarEmErro(item.nomeArquivoSalvo, item.pdfBytes, item.motivo);
   logger.warn(
     { arquivoOrigem: item.arquivoOrigem, paginas: item.paginas, motivo: item.motivo },
     'documento movido para erro',
   );
+  return { tipo: 'erro', identificacao: item.nomeArquivoSalvo, motivo: item.motivo };
+}
+
+function montarResumoDeArquivo(arquivoOrigem, resultados) {
+  const enviados = resultados.filter((resultado) => resultado.tipo === 'enviado');
+  const erros = resultados.filter((resultado) => resultado.tipo === 'erro');
+
+  const linhas = [
+    `Q-Zap: processamento concluido - ${path.basename(arquivoOrigem)}`,
+    `Enviados: ${enviados.length}`,
+    `Erros: ${erros.length}`,
+  ];
+
+  if (erros.length > 0) {
+    linhas.push(...erros.map((erro) => `- ${erro.identificacao} - ${erro.motivo}`));
+  }
+
+  return linhas.join('\n');
+}
+
+async function enviarResumoDeArquivo(arquivoOrigem, resultados) {
+  const mensagem = montarResumoDeArquivo(arquivoOrigem, resultados);
+  await enviarTexto(config.numeroAdmin, mensagem).catch((erro) => {
+    logger.error(
+      { arquivoOrigem, erro: erro.message },
+      'falha ao enviar resumo de processamento ao numero administrador',
+    );
+  });
 }
 
 export function criarProcessadorDeItens(rastreador, deps = {}) {
@@ -93,16 +124,20 @@ export function criarProcessadorDeItens(rastreador, deps = {}) {
   const contadorFalhas = deps.contadorFalhas ?? criarContadorFalhasConsecutivas();
 
   return async function processarItemDaFila(item) {
+    let resultado;
     if (item.tipo === 'documento') {
       await circuitBreaker.aguardarSeAtivo();
-      await processarDocumento(item, { circuitBreaker, contadorFalhas });
+      resultado = await processarDocumento(item, { circuitBreaker, contadorFalhas });
     } else {
-      await processarErro(item);
+      resultado = await processarErro(item);
     }
+
+    rastreador.registrarResultado(item.arquivoOrigem, resultado);
 
     if (rastreador.concluirItem(item.arquivoOrigem)) {
       await moverParaProcessado(item.arquivoOrigem);
       logger.info({ arquivoOrigem: item.arquivoOrigem }, 'arquivo de entrada totalmente processado');
+      await enviarResumoDeArquivo(item.arquivoOrigem, rastreador.obterResultados(item.arquivoOrigem));
     }
   };
 }
