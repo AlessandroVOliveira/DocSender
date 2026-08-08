@@ -10,7 +10,7 @@ Resolve a falta de integração nativa com WhatsApp em sistemas antigos: o ERP a
 
 ## Status atual
 
-Etapas 1 a 10 do [`docs/DEV_PLAN.md`](./docs/DEV_PLAN.md) concluídas: fluxo completo (extração de marcador, watcher, envio via Evolution API, anti-ban, retry/circuit breaker, logging, testes end-to-end) rodando como serviço do Windows. Falta só a Etapa 11 (instalador/desinstalador de um comando só para clientes novos).
+Todas as 11 etapas do [`docs/DEV_PLAN.md`](./docs/DEV_PLAN.md) concluídas: fluxo completo (extração de marcador, watcher, envio via Evolution API, anti-ban, retry/circuit breaker, logging, testes end-to-end) rodando como serviço do Windows, com instalador e desinstalador de um comando só para clientes novos.
 
 ## Como funciona (resumo)
 
@@ -38,9 +38,34 @@ Detalhes de bibliotecas e decisões de configuração estão em [`docs/DEV_PLAN.
 
 ## Instalação
 
-Instalador de um comando só (Etapa 11) ainda não implementado. O objetivo definido no PRD é que a instalação em uma máquina nova exija apenas executar um único comando e responder a algumas perguntas feitas por ele (pasta base, número administrador, limite diário), sem precisar editar o `.env` manualmente, além do pareamento inicial do WhatsApp via QR code. Ver Etapa 11 em [`docs/DEV_PLAN.md`](./docs/DEV_PLAN.md).
+Pré-requisitos: [Node.js](https://nodejs.org) e [Docker Desktop](https://www.docker.com/products/docker-desktop/) instalados.
 
-Até lá, a instalação é manual: subir a Evolution API (`docker-compose up -d`), preencher o `.env` a partir do `.env.example`, rodar `npm install` e então instalar o serviço do Windows (abaixo).
+Em um PowerShell **como Administrador**, na raiz do projeto:
+
+```
+.\install.ps1
+```
+
+O script:
+
+1. Verifica os pré-requisitos (Node, Docker, Docker Compose).
+2. Na primeira execução, cria o `.env` a partir do `.env.example` e pergunta interativamente `PASTA_BASE`, `NUMERO_ADMIN` e `LIMITE_DIARIO_POR_NUMERO` (mostra um resumo e pede confirmação antes de continuar). Em reexecuções com `.env` já existente, pula essa etapa.
+3. Gera `EVOLUTION_API_KEY` e `POSTGRES_PASSWORD` automaticamente, se ainda não estiverem definidos.
+4. Cria a estrutura de pastas dentro de `PASTA_BASE`, instala as dependências (`npm install`) e sobe a Evolution API (`docker compose up -d`).
+5. Cria a instância do WhatsApp na Evolution API (se ainda não existir) e abre o manager no navegador para o pareamento por QR code — única etapa manual inevitável. O script aguarda o pareamento antes de prosseguir.
+6. Registra e inicia o Q-Zap como serviço do Windows.
+
+Se o pareamento não for concluído a tempo, o script informa como registrar o serviço manualmente depois (`npm run servico:instalar`).
+
+## Desinstalação
+
+Em um PowerShell **como Administrador**, na raiz do projeto:
+
+```
+.\uninstall.ps1
+```
+
+Remove o serviço do Windows e derruba os containers Docker com os volumes (`docker compose down -v`) — a sessão pareada do WhatsApp e os dados do Postgres da Evolution API somem junto; uma reinstalação seguinte exige novo pareamento por QR code. Os documentos e logs em `PASTA_BASE` **nunca** são apagados, nem com essa desinstalação — são dados do cliente e permanecem em disco.
 
 ## Executando como serviço do Windows
 
