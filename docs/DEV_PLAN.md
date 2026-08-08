@@ -29,6 +29,7 @@ Decisões de config assumidas para v1 (podem ser revisadas):
 | `LIMITE_DIARIO_POR_NUMERO` | Limite diário de mensagens enviadas por número (RF11) | a definir por cliente na instalação |
 | `RETRY_MAX_TENTATIVAS` | Máximo de tentativas de envio antes de considerar erro (RF12) | `3` |
 | `RETRY_BASE_MS` / `RETRY_MAX_MS` | Backoff exponencial (RF12): `delay(tentativa) = min(BASE * 2^(tentativa-1), MAX) + jitter`. Sequência com os defaults: ~5s → ~10s → ~20s | `5000` / `60000` |
+| `CIRCUIT_BREAKER_MAX_FALHAS_CONSECUTIVAS` | Número de falhas de envio consecutivas (após esgotar as tentativas de retry) que aciona a pausa automática da fila por "erro recorrente" (RF13) | `3` |
 | `LOG_LEVEL` | Nível de verbosidade do `pino` (`trace`<`debug`<`info`<`warn`<`error`<`fatal`; cada nível loga a si e os mais severos) | `info` |
 | `POSTGRES_PASSWORD` | Senha do Postgres usado internamente pela Evolution API (v2 exige banco Prisma/Postgres para persistência de instância, não há mais modo só-arquivo) — usada tanto no `.env` do Q-Zap quanto no `docker-compose.yml` | obrigatória, sem default; gerada nativamente no `install.ps1` (Etapa 11), mesmo mecanismo do `EVOLUTION_API_KEY` |
 
@@ -92,10 +93,15 @@ Decisões de config assumidas para v1 (podem ser revisadas):
 **Entrega**: processamento de múltiplos documentos respeita delay e limite diário, visível nos logs.
 
 ## Etapa 7 — Resiliência: retry e circuit breaker
-- Retry com backoff exponencial + jitter em falha de envio: `delay(tentativa) = min(RETRY_BASE_MS * 2^(tentativa-1), RETRY_MAX_MS) + jitter`, até `RETRY_MAX_TENTATIVAS` (RF12).
+- Retry com backoff exponencial + jitter em falha de envio: `delay(tentativa) = min(RETRY_BASE_MS * 2^(tentativa-1), RETRY_MAX_MS) + jitter`, até `RETRY_MAX_TENTATIVAS` (RF12). Cada tentativa refaz o indicador de "digitando" + o envio da mídia (não só o envio isolado), mantendo o comportamento humano consistente mesmo em retry.
+- No boot, o Q-Zap registra automaticamente o próprio webhook na Evolution API (`POST /webhook/set/{instance}`, `{webhook:{enabled:true,url,byEvents:false,events:['CONNECTION_UPDATE']}}`) apontando para `http://127.0.0.1:WEBHOOK_PORT/webhook` — não é configuração manual no manager da Evolution API.
 - Listener do webhook de status de conexão da Evolution API, escutando em `127.0.0.1:WEBHOOK_PORT` (bind local, nunca exposto).
-- Circuit breaker: após N falhas/desconexão, pausa a fila automaticamente (RF13) e grava/atualiza `status.txt` na raiz da `PASTA_BASE` com motivo e horário da pausa (RF19) — mecanismo local, funciona mesmo com a Evolution API fora do ar.
-- Retomada manual (RF14, RF20): reutiliza a instância do `chokidar` já criada na Etapa 3 pra também observar a raiz da `PASTA_BASE`, aguardando a criação de `RETOMAR.txt`. Ao detectar, retoma o processamento, apaga o `RETOMAR.txt` (autolimpeza) e envia ao número administrador um resumo do período pausado via WhatsApp.
+- Circuit breaker, dois gatilhos independentes (RF13):
+  - **Desconexão confirmada**: evento `connection.update` do webhook com `state: "close"`. Estado `"connecting"` (transitório, ocorre em toda reconexão normal do Baileys) não aciona pausa, para não gerar pausas falsas frequentes.
+  - **Erro recorrente**: `CIRCUIT_BREAKER_MAX_FALHAS_CONSECUTIVAS` (default `3`) documentos seguidos que esgotaram as tentativas de retry, contador resetado a cada envio bem-sucedido. Cobre o cenário em que a Evolution API cai de forma não graciosa e o webhook de desconexão não chega a ser emitido.
+  - A pausa bloqueia apenas o envio de documentos (etapa que depende da Evolution API); documentos com marcador ausente/inválido continuam sendo movidos para `erro/` normalmente durante a pausa, já que essa rotina não depende de rede (mesma lógica de `erro/log.txt`/`status.txt` funcionarem offline).
+  - Grava/atualiza `status.txt` na raiz da `PASTA_BASE` com motivo e horário da pausa (RF19) — mecanismo local, funciona mesmo com a Evolution API fora do ar.
+- Retomada manual (RF14, RF20): reutiliza a instância do `chokidar` já criada na Etapa 3 (`watcher.add(...)`) pra também observar o arquivo `RETOMAR.txt` na raiz da `PASTA_BASE`. Ao detectar, retoma o processamento, apaga o `RETOMAR.txt` (autolimpeza), remove `status.txt` e envia ao número administrador um resumo do período pausado via WhatsApp (motivo, horário de início/fim, duração).
 
 **Entrega**: simulação de queda de conexão ou falha de envio pausa o sistema corretamente, sem loop de erro; `status.txt` reflete a pausa em tempo real; criar `RETOMAR.txt` retoma o processamento e gera o resumo retroativo.
 

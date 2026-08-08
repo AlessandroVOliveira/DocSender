@@ -47,5 +47,8 @@ export const config = {
     baseMs: Number(process.env.RETRY_BASE_MS || 5000),
     maxMs: Number(process.env.RETRY_MAX_MS || 60000),
   },
+  circuitBreaker: {
+    maxFalhasConsecutivas: Number(process.env.CIRCUIT_BREAKER_MAX_FALHAS_CONSECUTIVAS || 3),
+  },
   logLevel: process.env.LOG_LEVEL || 'info',
 };

@@ -55,6 +55,18 @@ export async function enviarDocumento(numero, { pdfBytes, nomeArquivo, legenda }
   return data;
 }
 
+export async function configurarWebhook(url) {
+  const { data } = await http.post(`/webhook/set/${instancia}`, {
+    webhook: {
+      enabled: true,
+      url,
+      byEvents: false,
+      events: ['CONNECTION_UPDATE'],
+    },
+  });
+  return data;
+}
+
 export async function enviarPresenca(numero, presence, delayMs) {
   const { data } = await http.post(`/chat/sendPresence/${instancia}`, {
     number: numero,

@@ -4,7 +4,9 @@ import chokidar from 'chokidar';
 import { config } from '../config/config.js';
 import { processarArquivoPdf } from './processarPdf.js';
 
-export function iniciarWatcher({ logger, fila, rastreador }) {
+export function iniciarWatcher({ logger, fila, rastreador, onRetomar }) {
+  const caminhoRetomar = path.join(config.pastas.base, 'RETOMAR.txt');
+
   const watcher = chokidar.watch(config.pastas.entrada, {
     ignoreInitial: false,
     awaitWriteFinish: {
@@ -13,7 +15,14 @@ export function iniciarWatcher({ logger, fila, rastreador }) {
     },
   });
 
+  watcher.add(caminhoRetomar);
+
   watcher.on('add', async (caminhoArquivo) => {
+    if (path.resolve(caminhoArquivo) === path.resolve(caminhoRetomar)) {
+      await onRetomar?.();
+      return;
+    }
+
     if (path.extname(caminhoArquivo).toLowerCase() !== '.pdf') {
       logger.warn({ caminhoArquivo }, 'arquivo ignorado: v1 aceita apenas .pdf');
       return;
