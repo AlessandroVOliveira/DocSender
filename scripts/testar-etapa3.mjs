@@ -4,6 +4,7 @@ import pino from 'pino';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { config } from '../config/config.js';
 import { criarFila } from '../src/fila.js';
+import { criarRastreadorArquivos } from '../src/rastreadorArquivos.js';
 import { iniciarWatcher } from '../src/watcher.js';
 
 const logger = pino({ level: 'warn' });
@@ -77,7 +78,8 @@ async function main() {
   });
 
   console.log('=== iniciando watcher em', config.pastas.entrada, '===');
-  const watcher = iniciarWatcher({ logger, fila });
+  const rastreador = criarRastreadorArquivos();
+  const watcher = iniciarWatcher({ logger, fila, rastreador });
   await watcher.awaitReady?.();
 
   console.log('\n=== gravando arquivos simultaneamente na pasta de entrada ===');

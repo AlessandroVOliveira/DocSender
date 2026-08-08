@@ -4,7 +4,7 @@ import chokidar from 'chokidar';
 import { config } from '../config/config.js';
 import { processarArquivoPdf } from './processarPdf.js';
 
-export function iniciarWatcher({ logger, fila }) {
+export function iniciarWatcher({ logger, fila, rastreador }) {
   const watcher = chokidar.watch(config.pastas.entrada, {
     ignoreInitial: false,
     awaitWriteFinish: {
@@ -24,13 +24,18 @@ export function iniciarWatcher({ logger, fila }) {
     try {
       const dadosPdf = await readFile(caminhoArquivo);
       const { documentos, erros } = await processarArquivoPdf(new Uint8Array(dadosPdf));
+      const baseNome = path.parse(caminhoArquivo).name;
 
-      for (const documento of documentos) {
-        fila.adicionar({ tipo: 'documento', arquivoOrigem: caminhoArquivo, ...documento });
-      }
-      for (const erro of erros) {
-        fila.adicionar({ tipo: 'erro', arquivoOrigem: caminhoArquivo, ...erro });
-      }
+      rastreador.registrarTotal(caminhoArquivo, documentos.length + erros.length);
+
+      documentos.forEach((documento, indice) => {
+        const nomeArquivoSalvo = `${baseNome}__doc${indice + 1}__${documento.numero}.pdf`;
+        fila.adicionar({ tipo: 'documento', arquivoOrigem: caminhoArquivo, nomeArquivoSalvo, ...documento });
+      });
+      erros.forEach((erro, indice) => {
+        const nomeArquivoSalvo = `${baseNome}__erro${indice + 1}__p${erro.paginas[0]}.pdf`;
+        fila.adicionar({ tipo: 'erro', arquivoOrigem: caminhoArquivo, nomeArquivoSalvo, ...erro });
+      });
 
       logger.info(
         { caminhoArquivo, documentos: documentos.length, erros: erros.length },

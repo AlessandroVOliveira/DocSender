@@ -78,6 +78,9 @@ Decisões de config assumidas para v1 (podem ser revisadas):
 - Documento sem marcador válido → move o PDF do grupo para `erro/` (RF05).
 - Documento enviado com sucesso → move o PDF do grupo para `enviados/` (RF08).
 - Quando todos os documentos de um arquivo de entrada forem concluídos (enviados e/ou em erro), mover o arquivo original para `processado/`.
+- Mensagem e anexo enviados numa única chamada (`POST /message/sendMedia`, mensagem no campo `caption`), conforme RF07 ("junto com a mensagem montada") — não há chamada separada de texto.
+- Nome do PDF salvo em `enviados/`/`erro/` é derivado do arquivo de entrada original + índice do grupo dentro dele + identificador (número para documento, página para erro): `<arquivo>__doc<N>__<numero>.pdf` / `<arquivo>__erro<N>__p<pagina>.pdf`. Necessário porque `enviados/`/`erro/` acumulam PDFs de vários arquivos de entrada ao longo do tempo — evita colisão de nome (mesmo cliente em dois grupos não consecutivos do mesmo lote, ou dois arquivos de entrada diferentes) e mantém rastreabilidade até a origem.
+- Falha no envio (erro de rede/API) nesta etapa é tratada como erro: PDF vai para `erro/` com o motivo sendo a mensagem da exceção, e o documento conta como concluído para fins de mover o arquivo original para `processado/`. Ainda não há retry (isso é a Etapa 7) — decisão explícita do usuário para não deixar a exceção propagar e travar o processamento dos demais itens da fila (inclusive de outros arquivos).
 
 **Entrega**: fluxo completo funcional em condição ideal (sem falha de rede), cobrindo os critérios de aceite básicos do PRD, incluindo o caso de lote com múltiplos clientes em um único arquivo de entrada.
 
