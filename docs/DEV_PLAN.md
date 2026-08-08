@@ -123,7 +123,9 @@ Validar contra os critérios de aceite do PRD:
 - Queda de conexão → pausa automática, `status.txt` reflete o motivo; criar `RETOMAR.txt` retoma e dispara resumo retroativo.
 - Falha pontual de envio → retry controlado, sem derrubar o serviço.
 
-**Entrega**: checklist de aceite do PRD (seção 11) todo marcado.
+**Entrega**: checklist de aceite do PRD (seção 11) todo marcado (exceto os itens de instalação/desinstalação, que dependem da Etapa 11).
+
+- **Achado nao previsto no planejamento original, corrigido nesta etapa**: reinício do serviço no meio do processamento de um arquivo em **lote** podia reenviar documentos já confirmados antes da queda. Causa: `rastreadorArquivos` (Etapa 3) é 100% em memória, e o arquivo original só sai de `entrada/` quando todos os documentos do lote terminam — um crash no meio do lote deixa o arquivo lá, e o watcher (`ignoreInitial:false`, Etapa 3) reprocessa o arquivo inteiro do zero no boot seguinte, reenviando também os documentos já resolvidos antes da queda. Documento único não sofre disso (janela de exposição é a duração de uma única chamada de rede). Validado empiricamente com `scripts/testar-etapa9.mjs`: lote de 4 documentos, processo morto (`SIGKILL`) logo após o 1º ser confirmado em `enviados/`, reinício reenviou esse 1º documento (confirmado 2x nos logs e recebido 2x no WhatsApp de teste). **Correção**: `processarDocumento` (`src/index.js`) checa, antes de qualquer envio, se já existe um arquivo com o `nomeArquivoSalvo` determinístico do documento em `enviados/`; se existir, pula o envio e trata como já resolvido — reaproveita o efeito colateral que já existia (arquivo salvo) como fonte da verdade, sem novo mecanismo de estado. Decisão de abordagem (essa checagem idempotente vs. persistir um checkpoint de progresso à parte vs. só documentar como limitação conhecida) questionada com o usuário antes de aplicar (CLAUDE.md exige isso, via `AskUserQuestion`); reexecutado o mesmo cenário após o fix, confirmado sem reenvio (1x nos logs, 1x no WhatsApp).
 
 ## Etapa 10 — Deploy como serviço no Windows
 - Empacotar para rodar em background (ex: `node-windows` para instalar como Windows Service).

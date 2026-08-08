@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { unlink } from 'node:fs/promises';
+import { access, unlink } from 'node:fs/promises';
 import { config } from '../config/config.js';
 import { criarLogger } from './logger.js';
 import { garantirEstruturaDePastas } from './bootstrap.js';
@@ -19,7 +19,21 @@ import { iniciarWatcher } from './watcher.js';
 
 const logger = criarLogger();
 
+async function jaEnviado(nomeArquivoSalvo) {
+  return access(path.join(config.pastas.enviados, nomeArquivoSalvo))
+    .then(() => true)
+    .catch(() => false);
+}
+
 async function processarDocumento(item, { circuitBreaker, contadorFalhas }) {
+  if (await jaEnviado(item.nomeArquivoSalvo)) {
+    logger.info(
+      { arquivoOrigem: item.arquivoOrigem, numero: item.numero, nome: item.nome },
+      'documento ja estava em enviados/ (reprocessamento de lote apos reinicio), envio nao repetido',
+    );
+    return { tipo: 'enviado', identificacao: item.nomeArquivoSalvo };
+  }
+
   const template = await carregarTemplate();
   const mensagem = montarMensagem(template, item.nome);
 

@@ -150,16 +150,16 @@ Em paralelo: serviço escuta webhook de status de conexão da Evolution API; se 
 
 ## 11. Critérios de aceite (v1)
 
-- [ ] Arquivo com marcador válido em todas as páginas é enviado automaticamente ao número correto, com a mensagem personalizada.
-- [ ] Arquivo em lote com documentos de múltiplos clientes é corretamente dividido por marcador, e cada documento é enviado ao destinatário correto.
-- [ ] Página/documento sem marcador válido (ausente, malformado ou telefone inexistente) é movido para `erro/` e não trava o processamento dos demais documentos do mesmo lote.
-- [ ] Documento enviado com sucesso é movido para `enviados/`, e o arquivo original é movido para `processado/` quando todos os seus documentos forem concluídos; nada é reenviado em reinícios subsequentes do serviço.
-- [ ] Delay aleatório entre envios é observável nos logs (nunca dois envios em sequência imediata).
-- [ ] Queda de conexão da instância Evolution API pausa o processamento automático até intervenção manual.
-- [ ] Falha pontual de envio não derruba o serviço nem entra em loop de retry agressivo.
-- [ ] Instalação em uma máquina nova exige apenas rodar um comando e responder às perguntas interativas dele (pasta base, número administrador, limite diário), além do pareamento por QR code — sem precisar editar o `.env` manualmente nem configurar pastas, Docker ou serviço à parte.
-- [ ] Documento em erro gera entrada legível em `erro/log.txt`, consultável sem depender da Evolution API estar no ar.
-- [ ] Ao final do processamento de um arquivo de entrada, o número administrador recebe um resumo via WhatsApp com a contagem de enviados/erros.
-- [ ] Durante uma pausa por circuit breaker, `status.txt` reflete o motivo/horário, consultável sem depender da Evolution API estar no ar; criar `RETOMAR.txt` retoma o processamento e dispara um resumo retroativo ao número administrador.
-- [ ] O limite diário por número (RF11) sobrevive a um reinício do serviço no meio do dia, sem resetar a contagem indevidamente.
-- [ ] Desinstalação em uma máquina removeu o serviço Windows e os containers/volumes Docker (Evolution API exige novo pareamento por QR code numa reinstalação seguinte), sem apagar nenhum arquivo de `PASTA_BASE`.
+- [x] Arquivo com marcador válido em todas as páginas é enviado automaticamente ao número correto, com a mensagem personalizada.
+- [x] Arquivo em lote com documentos de múltiplos clientes é corretamente dividido por marcador, e cada documento é enviado ao destinatário correto.
+- [x] Página/documento sem marcador válido (ausente, malformado ou telefone inexistente) é movido para `erro/` e não trava o processamento dos demais documentos do mesmo lote.
+- [x] Documento enviado com sucesso é movido para `enviados/`, e o arquivo original é movido para `processado/` quando todos os seus documentos forem concluídos; nada é reenviado em reinícios subsequentes do serviço.
+- [x] Delay aleatório entre envios é observável nos logs (nunca dois envios em sequência imediata).
+- [x] Queda de conexão da instância Evolution API pausa o processamento automático até intervenção manual.
+- [x] Falha pontual de envio não derruba o serviço nem entra em loop de retry agressivo.
+- [ ] Instalação em uma máquina nova exige apenas rodar um comando e responder às perguntas interativas dele (pasta base, número administrador, limite diário), além do pareamento por QR code — sem precisar editar o `.env` manualmente nem configurar pastas, Docker ou serviço à parte. (Etapa 11, ainda não implementada.)
+- [x] Documento em erro gera entrada legível em `erro/log.txt`, consultável sem depender da Evolution API estar no ar.
+- [x] Ao final do processamento de um arquivo de entrada, o número administrador recebe um resumo via WhatsApp com a contagem de enviados/erros.
+- [x] Durante uma pausa por circuit breaker, `status.txt` reflete o motivo/horário, consultável sem depender da Evolution API estar no ar; criar `RETOMAR.txt` retoma o processamento e dispara um resumo retroativo ao número administrador.
+- [x] O limite diário por número (RF11) sobrevive a um reinício do serviço no meio do dia, sem resetar a contagem indevidamente.
+- [ ] Desinstalação em uma máquina removeu o serviço Windows e os containers/volumes Docker (Evolution API exige novo pareamento por QR code numa reinstalação seguinte), sem apagar nenhum arquivo de `PASTA_BASE`. (Etapa 11, ainda não implementada.)
